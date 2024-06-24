@@ -19,7 +19,71 @@ def read_image(path):
 
 def make_transformation_matrix(rpy,x,y,alt):
     r = R.from_euler('ZXY', rpy, degrees=True)
+    # r = R.from_euler('YXZ', np.flip(rpy), degrees=True)
     RMat=r.as_matrix()
+    #gimbal to image plane comversion
+    T_ned_to_camera = np.array([
+    [0, 0, 1],  # NED X (North) to Camera Z (Forward)
+    [1, 0, 0],  # NED Y (East) to Camera X (Right)
+    [0, 1, 0]   # NED Z (Down) to Camera Y (Down)
+])
+    RMat= RMat @T_ned_to_camera
+    t=np.array([x,y,alt])
+    tMat=np.eye(4)
+    tMat[:3, :3] = RMat
+    tMat[:3, 3] = t
+    return tMat
+
+def transform_rotation_ned_to_utm(ned_rotation):
+    """
+    Transform rotation from NED to UTM (ENU) coordinate system.
+    
+    Args:
+    ned_rotation (np.array): Rotation in NED [yaw, pitch, roll] in degrees
+    
+    Returns:
+    np.array: Rotation in UTM (ENU) [yaw, pitch, roll] in degrees
+    """
+    # Create rotation matrix from NED angles
+    r_ned = R.from_euler('zyx', ned_rotation, degrees=True)
+    
+    # Rotation matrix to convert from NED to ENU
+    r_ned_to_enu = R.from_euler('xyz', [180, 0, 90], degrees=True)
+    
+    # Apply the transformation
+    r_enu = r_ned_to_enu * r_ned
+    
+    # Convert back to Euler angles
+    enu_rotation = r_enu.as_euler('zyx', degrees=True)
+    
+    return enu_rotation
+
+def TMat(r,t):
+    tMat=np.eye(4)
+    tMat[:3, :3] = r
+    tMat[:3, 3] = t
+    return tMat
+
+def make_transformation_matrix_ENU(rpy,x,y,alt):
+    # rpy=np.array([-rpy[2],rpy[1],rpy[0]])
+    r = R.from_euler('YXZ', rpy, degrees=True)
+    RMat=r.as_matrix()
+    # r_ned_to_enu = R.from_euler('xyz', [180, 0, 90], degrees=True)
+    
+    # # Apply the transformation
+    # RMat = r_ned_to_enu * r
+    # r = R.from_euler('ZXY', [90,-180,0], degrees=True)
+    # R_ned_to_utm=r.as_matrix()
+
+    # NED to UTM (ENU) rotation
+    R_ned_to_utm = np.array([[0, 1, 0],
+                             [1, 0, 0],
+                             [0, 0, -1]])
+    #ENu to NED
+
+    
+    # # # # Transform to UTM (ENU)
+    RMat = R_ned_to_utm.T @ RMat #@ R_ned_to_utm.T
     t=np.array([x,y,alt])
     tMat=np.eye(4)
     tMat[:3, :3] = RMat
@@ -38,7 +102,6 @@ def get_ned(lla0,points):
     # points_lat_lon=np.asarray([utm.to_latlon(point[0],point[1],35,'T') for point in points])
     points_lat_lon=np.vstack([np.asarray(utm.to_latlon(points[:,0],points[:,1],35,'T')),points[:,2]]).T
     points_ned=np.asarray(pymap3d.geodetic2ned(points_lat_lon[:,0],points_lat_lon[:,1],points_lat_lon[:,2] ,lla0[0],lla0[1],lla0[2])).T
-    # pymap3d.ecef2ned
     return points_ned
 
 def visualize(objs):

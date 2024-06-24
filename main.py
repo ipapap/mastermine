@@ -4,6 +4,7 @@ import cv2
 import pymap3d
 import scipy
 import open3d as o3d
+import utm
 def main():
     path='/media/gns/CA78173A781724AB/Users/Gns/Downloads/DJI_202309191217_002_Zenmuse-L1-mission/DJI_20230919121746_0007_Zenmuse-L1-mission.JPG'
     fx=3600.522132
@@ -27,34 +28,45 @@ def main():
     im_ned=pymap3d.geodetic2ned(im_data['latlon'][0],im_data['latlon'][1],im_data['altitude_abs'],lla0[0],lla0[1],lla0[2])  # get ned coordinates of the image relative to the reference point
 
     # create transformation matrix
-    T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_ned[0],im_ned[1],im_data['altitude_abs']) # create transformation matrix
-    # T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_rel']) # create transformation matrix
-
+    T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_ned[0],im_ned[1],im_ned[2]) # create transformation matrix
+    # T_im2w=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
+    # T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
+    # T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_ned[0],im_ned[1],im_ned[2]) 
     # get point cloud data
     points=utils.get_pcd()
+    # visualize the point cloud data along with the camera
+    
+    #create a dummy point cloud that is a plane initialized by 3 lat lon points, fill that triangle with points
+    # points=np.array([[41.1390179,24.9116968,10],[41.13916938876487, 24.91592933276562,10],[41.137452385469395, 24.91446483240224,100]])
+    # points=np.hstack([np.array((utm.from_latlon(points[:,0],points[:,1])[:2])).T,points[:,2].T.reshape(-1,1)])
+
+
+
     # convert point cloud data to ned relative to the reference point
     points_ned=utils.get_ned(lla0,points)
 
-    points_converted=cv2.convertPointsFromHomogeneous((np.linalg.inv(T_im2w)@cv2.convertPointsToHomogeneous(points_ned).squeeze(1).T).T).squeeze(1)
+    # points_converted=cv2.convertPointsFromHomogeneous((np.linalg.inv(T_im2w)@cv2.convertPointsToHomogeneous(points_ned).squeeze(1).T).T).squeeze(1)
+    # points_converted=cv2.convertPointsFromHomogeneous((T_im2w@cv2.convertPointsToHomogeneous(points_ned).squeeze(1).T).T).squeeze(1)
     #visualize the point cloud data with camera
     # utils.visualize_camera(T_im2w,K,points_converted)
-    utils.visualize_camera(np.linalg.inv(T_im2w),K,points_converted)
+    # utils.visualize_camera(np.linalg.inv(T_im2w),K,points_converted)
+    utils.visualize_camera(T_im2w,K,points_ned)
 
-    res=utils.project_points(points_converted,K,im_data['image'].width,im_data['image'].height,extrinsic_matrix=np.linalg.inv(T_im2w))
+    res=utils.project_points(points_ned,K,im_data['image'].width,im_data['image'].height,extrinsic_matrix=np.linalg.inv(T_im2w))
 
     ## painting only object points
     object_coords=np.array([684,2784])#np.array([630,1665])
     tree= scipy.spatial.cKDTree(res[0][res[1]]) # search only the valid points
     inlrs=tree.query_ball_point((np.array([object_coords[0],object_coords[1]])),50) # for some reason the image is flipped
 
-    active_points=points_converted[res[1]][inlrs]
+    active_points=points_ned[res[1]][inlrs]
 
     #show the active points in red color and the rest in blue
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(active_points)
     point_cloud.paint_uniform_color([0, 0, 0])
     point_cloud_inactive = o3d.geometry.PointCloud()
-    point_cloud_inactive.points = o3d.utility.Vector3dVector(points_converted)
+    point_cloud_inactive.points = o3d.utility.Vector3dVector(points_ned)
 
     # point_cloud_inactive.paint_uniform_color([0, 0, 1])
 
