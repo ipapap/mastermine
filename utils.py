@@ -34,29 +34,6 @@ def make_transformation_matrix(rpy,x,y,alt):
     tMat[:3, 3] = t
     return tMat
 
-def transform_rotation_ned_to_utm(ned_rotation):
-    """
-    Transform rotation from NED to UTM (ENU) coordinate system.
-    
-    Args:
-    ned_rotation (np.array): Rotation in NED [yaw, pitch, roll] in degrees
-    
-    Returns:
-    np.array: Rotation in UTM (ENU) [yaw, pitch, roll] in degrees
-    """
-    # Create rotation matrix from NED angles
-    r_ned = R.from_euler('zyx', ned_rotation, degrees=True)
-    
-    # Rotation matrix to convert from NED to ENU
-    r_ned_to_enu = R.from_euler('xyz', [180, 0, 90], degrees=True)
-    
-    # Apply the transformation
-    r_enu = r_ned_to_enu * r_ned
-    
-    # Convert back to Euler angles
-    enu_rotation = r_enu.as_euler('zyx', degrees=True)
-    
-    return enu_rotation
 
 def TMat(r,t):
     tMat=np.eye(4)
@@ -68,22 +45,24 @@ def make_transformation_matrix_ENU(rpy,x,y,alt):
     # rpy=np.array([-rpy[2],rpy[1],rpy[0]])
     r = R.from_euler('YXZ', rpy, degrees=True)
     RMat=r.as_matrix()
-    # r_ned_to_enu = R.from_euler('xyz', [180, 0, 90], degrees=True)
-    
-    # # Apply the transformation
-    # RMat = r_ned_to_enu * r
-    # r = R.from_euler('ZXY', [90,-180,0], degrees=True)
-    # R_ned_to_utm=r.as_matrix()
 
-    # NED to UTM (ENU) rotation
-    R_ned_to_utm = np.array([[0, 1, 0],
-                             [1, 0, 0],
-                             [0, 0, -1]])
-    #ENu to NED
 
+    # # NED to UTM (ENU) rotation
+    # R_ned_to_utm = np.array([[0, 1, 0],
+    #                          [1, 0, 0],
+    #                          [0, 0, -1]])
+
+
+    r_enu_to_camera = np.array([
+    [1, 0, 0],  # NED X (North) to Camera Z (Forward)
+    [0, 0, 1],  # NED Y (East) to Camera X (Right)
+    [0, -1, 0]   # NED Z (Down) to Camera Y (Down)
+
+])
+    RMat=  RMat @r_enu_to_camera
     
     # # # # Transform to UTM (ENU)
-    RMat = R_ned_to_utm.T @ RMat #@ R_ned_to_utm.T
+    # RMat = R_ned_to_utm.T @ RMat #@ R_ned_to_utm.T
     t=np.array([x,y,alt])
     tMat=np.eye(4)
     tMat[:3, :3] = RMat
@@ -155,3 +134,32 @@ def project_points(point_cloud, K, image_width, image_height, extrinsic_matrix=n
 
     return pixel_coords, valid_mask
 
+# inverce projection
+def project_points_inv(pixel_coords, K, extrinsic_matrix=np.eye(4)):
+    num_points = pixel_coords.shape[0]
+    homogeneous_points = np.hstack((pixel_coords, np.ones((num_points, 1))))
+
+    # Apply the extrinsic transformation (R, t)
+    camera_points = (extrinsic_matrix @ homogeneous_points.T).T
+
+    # Project the points using the intrinsic matrix K
+    C=np.hstack([K, np.zeros((3, 1))])
+    projected_points = (C @ camera_points.T).T
+    # projected_points = (K @ camera_points[:, :3].T).T
+
+    # Normalize the homogeneous coordinates to get pixel coordinates
+    # pixel_coords = projected_points[:, :2] / projected_points[:, 2].reshape(-1, 1)
+    pixel_coords = projected_points[:, :2] / projected_points[:, 2, np.newaxis]
+    # Check which points fall within image bounds and are in front of the camera
+    # valid_mask = (
+    #     (pixel_coords[:, 0] >= 0) & (pixel_coords[:, 0] < image_width) &
+    #     (pixel_coords[:, 1] >= 0) & (pixel_coords[:, 1] < image_height) &
+    #     (camera_points[:, 2] > 0)  # Ensure points are in front of the camera
+    # )
+
+    return pixel_coords
+def downsample(points,voxel_size=1):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    downpcd = pcd.voxel_down_sample(voxel_size=voxel_size)
+    return np.asarray(downpcd.points)
