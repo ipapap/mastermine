@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation as R
 import laspy
 import pymap3d
 import open3d as o3d
+import scipy
 def read_image(path):
     im=Image.open(path)
     im_data=im.getxmp()['xmpmeta']['RDF']['Description']
@@ -43,23 +44,29 @@ def TMat(r,t):
 
 def make_transformation_matrix_ENU(rpy,x,y,alt):
     # rpy=np.array([-rpy[2],rpy[1],rpy[0]])
-    r = R.from_euler('YXZ', rpy, degrees=True)
+    r = R.from_euler('ZXY', rpy, degrees=True)
     RMat=r.as_matrix()
 
 
     # # NED to UTM (ENU) rotation
-    # R_ned_to_utm = np.array([[0, 1, 0],
-    #                          [1, 0, 0],
-    #                          [0, 0, -1]])
+    #                         E  N  U            
+    R_ned_to_utm = np.array([[0, 1, 0],    #N
+                             [1, 0, 0],    #E
+                             [0, 0, -1]])  #D
 
+    #                            X  Y  Z
+    r_enu_to_camera = np.array([[0, 0, 1],  # E 
+                                [1, 0, 0],  # N 
+                                [0, -1, 0]   # U 
 
-    r_enu_to_camera = np.array([
-    [1, 0, 0],  # NED X (North) to Camera Z (Forward)
-    [0, 0, 1],  # NED Y (East) to Camera X (Right)
-    [0, -1, 0]   # NED Z (Down) to Camera Y (Down)
-
+])    
+    r_ned_to_camera = np.array([
+    [0, 0, 1],  # NED X (North) to Camera Z (Forward)
+    [1, 0, 0],  # NED Y (East) to Camera X (Right)
+    [0, 1, 0]   # NED Z (Down) to Camera Y (Down)
 ])
-    RMat=  RMat @r_enu_to_camera
+
+    RMat=  R_ned_to_utm.T @ RMat @ r_ned_to_camera
     
     # # # # Transform to UTM (ENU)
     # RMat = R_ned_to_utm.T @ RMat #@ R_ned_to_utm.T
@@ -163,3 +170,22 @@ def downsample(points,voxel_size=1):
     pcd.points = o3d.utility.Vector3dVector(points)
     downpcd = pcd.voxel_down_sample(voxel_size=voxel_size)
     return np.asarray(downpcd.points)
+
+
+# def search_obj(point_clouds,img_coords,K,T_im2w,image_shape=(0,0),obj_radius=50,search_radius=100):
+
+#     relevant_points=[]
+#     for i,point_cloud in enumerate(point_clouds):
+#         pixels, valid_mask = project_points(point_cloud, K, image_shape[0], image_shape[1] , extrinsic_matrix=np.linalg.inv(T_im2w))
+#         tree= scipy.spatial.cKDTree(pixels[valid_mask])
+#         inlrs=tree.query_ball_point((np.array([img_coords[0],img_coords[1]])),obj_radius)
+
+#         if i<len(point_clouds)-1:
+#             relevant_points=point_cloud[valid_mask]
+            
+        
+
+
+        
+
+#     return inlrs

@@ -30,10 +30,10 @@ def main():
     im_ned=pymap3d.geodetic2ned(im_data['latlon'][0],im_data['latlon'][1],im_data['altitude_abs'],lla0[0],lla0[1],lla0[2])  # get ned coordinates of the image relative to the reference point
 
     # create transformation matrix from ned to camera frame
-    T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_ned[0],im_ned[1],im_ned[2]) # create transformation matrix
+    # T_im2w=utils.make_transformation_matrix(im_data['gimbal_yrp'],im_ned[0],im_ned[1],im_ned[2]) # create transformation matrix
 
     # create transformation matrix from enu to camera frame
-    # T_im2w=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
+    T_im2w=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
 
     # get point cloud data
     points=utils.get_pcd()
@@ -41,7 +41,9 @@ def main():
     # points_downsampled=utils.downsample(points,2)
 
     # convert point cloud data to ned relative to the reference point
-    points_ned=utils.get_ned(lla0,points)
+    # points_ned=utils.get_ned(lla0,points)
+
+    points_ned=points
 
     utils.visualize_camera(T_im2w,K,points_ned)
 
