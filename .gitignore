@@ -1,2 +1,3 @@
 terna/
 __pycache__/
+colmap_localization/reconstruction/
