@@ -1,3 +1,7 @@
 pycolmap
 utm
 exifread
+laspy
+pymap3d
+open3d
+pillow
