@@ -1,5 +1,12 @@
 # Mastermine
 
+Install the requirements
+---------------------
+
+```
+$ pip install -r requirements.txt
+$ sudo apt install colmap
+```
 ## Colmap localization:
 
   -create an initial 3d sparse reconstruction
