@@ -7,6 +7,13 @@ Install the requirements
 $ pip install -r requirements.txt
 $ sudo apt install colmap
 ```
+
+
+Annotation tool used for class detection
+---------------------
+Roboflow mastermine[https://app.roboflow.com/duth-41ltl/mastermine/]
+
+
 ## Colmap localization:
 
   -create an initial 3d sparse reconstruction
