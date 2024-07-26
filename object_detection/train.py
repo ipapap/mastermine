@@ -22,5 +22,5 @@ print(results)
 # p=model.predict(Image.open('/home/gns/Pictures/mine_madudi.png'),conf=0.01,iou=0.02,augment=True,agnostic_nms=True,imgsz=400)
 # plt.imshow(cv2.cvtColor(p[0].plot(),cv2.COLOR_BGR2RGB))
 
-model = YOLO('/mnt/sde1/terna/mastermine_yolo_train/runs/detect/train4/weights/best.pt')
+model = YOLO('object_detection/weights/best.pt')
 results = model.val(data=yaml, epochs=200,batch=64,imgsz=640,scale=0.4,degrees=360) # 
