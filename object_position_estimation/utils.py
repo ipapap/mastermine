@@ -1,21 +1,58 @@
 import numpy as np
 from PIL import Image
+from PIL.ExifTags import TAGS
+import pyproj
 import utm
 from scipy.spatial.transform import Rotation as R
 import laspy
-import pymap3d
+# import pymap3d
 import open3d as o3d
 import scipy
+
 def read_image(path):
     im=Image.open(path)
     im_data=im.getxmp()['xmpmeta']['RDF']['Description']
-    # rpy=np.asarray([im_data['FlightYawDegree'],im_data['FlightRollDegree'],im_data['FlightPitchDegree']]).astype(float)
-    lat_lon=np.asarray([im_data['GpsLatitude'],im_data['GpsLongtitude']]).astype(float)
-    x,y,zone,zone_letter=utm.from_latlon(lat_lon[0],lat_lon[1])
-    alt=float(im_data['RelativeAltitude'])
-    alt_abs=float(im_data['AbsoluteAltitude'])
-    gimbal_rpy=np.asarray([im_data['GimbalYawDegree'],im_data['GimbalRollDegree'],im_data['GimbalPitchDegree'],]).astype(float)
-    K=np.array([[float(im_data['CalibratedFocalLength']),0,float(im_data['CalibratedOpticalCenterX'])],[0,float(im_data['CalibratedFocalLength']),float(im_data['CalibratedOpticalCenterY'])],[0,0,1]]) 
+    if im_data['Model'] == 'ZH20':
+
+        # rpy=np.asarray([im_data['FlightYawDegree'],im_data['FlightRollDegree'],im_data['FlightPitchDegree']]).astype(float)
+        lat_lon=np.asarray([im_data['GpsLatitude'],im_data['GpsLongitude']]).astype(float)  # typo error in the key name
+        x,y,zone,zone_letter=utm.from_latlon(lat_lon[0],lat_lon[1])
+        alt=float(im_data['RelativeAltitude'])
+        alt_abs=float(im_data['AbsoluteAltitude'])
+        gimbal_rpy=np.asarray([im_data['GimbalYawDegree'],im_data['GimbalRollDegree'],im_data['GimbalPitchDegree'],]).astype(float)
+        exif_data = im._getexif()
+        def get_exif_tag_key(tag_name):
+            for key, value in TAGS.items():
+                if value == tag_name:
+                    return key
+            return None
+        focal_length_key = get_exif_tag_key('FocalLength')
+        focal_length = float(exif_data.get(focal_length_key))*1000
+          
+
+
+
+
+        # Camera intrinsic matrix
+        K = np.array([
+            [focal_length, 0, im.width / 2],
+            [0, focal_length, im.height / 2],
+            [0, 0, 1]
+        ])
+
+    elif im_data['Model'] == 'EP800':
+
+        # rpy=np.asarray([im_data['FlightYawDegree'],im_data['FlightRollDegree'],im_data['FlightPitchDegree']]).astype(float)
+        lat_lon=np.asarray([im_data['GpsLatitude'],im_data['GpsLongtitude']]).astype(float)
+        x,y,zone,zone_letter=utm.from_latlon(lat_lon[0],lat_lon[1])
+        alt=float(im_data['RelativeAltitude'])
+        alt_abs=float(im_data['AbsoluteAltitude'])
+        gimbal_rpy=np.asarray([im_data['GimbalYawDegree'],im_data['GimbalRollDegree'],im_data['GimbalPitchDegree'],]).astype(float)
+        K=np.array([[float(im_data['CalibratedFocalLength']),0,float(im_data['CalibratedOpticalCenterX'])],[0,float(im_data['CalibratedFocalLength']),float(im_data['CalibratedOpticalCenterY'])],[0,0,1]]) 
+
+    else :
+        print('Camera model not supported')
+        return None
     return {'gimbal_yrp':gimbal_rpy,'utm':[x,y],'altitude_rel':alt,'altitude_abs':alt_abs,'latlon':lat_lon,'image':im,'K':K}
 
 def make_transformation_matrix(rpy,x,y,alt):
@@ -81,7 +118,8 @@ def get_pcd(path="/media/gns/CA78173A781724AB/Users/Gns/Documents/DJI/DJITerra/g
     #read point cloud data
     inFile = laspy.file.File(path, mode="r")
     points = np.vstack((inFile.x, inFile.y, inFile.z)).transpose()
-    return points
+    colors = np.vstack((inFile.red, inFile.green, inFile.blue)).transpose()/ 65535.0
+    return points,colors
 
 def get_ned(lla0,points):
     #convert points from utm to lat lon and then to ned
@@ -165,11 +203,24 @@ def project_points_inv(pixel_coords, K, extrinsic_matrix=np.eye(4)):
     # )
 
     return pixel_coords
-def downsample(points,voxel_size=1):
+def downsample(points,colors=None,voxel_size=1):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
+    if colors is not None:
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+
     downpcd = pcd.voxel_down_sample(voxel_size=voxel_size)
     return np.asarray(downpcd.points)
+
+def grs87_to_wgs84(points):
+    ggrs87 = pyproj.CRS('EPSG:2100')
+    wgs84 = pyproj.CRS('EPSG:4326')
+    transformer = pyproj.Transformer.from_crs(ggrs87, wgs84, always_xy=False)
+    points_lat_lon = np.array(transformer.transform(points[:,0],points[:,1]) ).T
+    # to utm
+    x,y,zone,letter=utm.from_latlon(points_lat_lon[:,0],points_lat_lon[:,1])
+    return(np.vstack([x,y,points[:,2]]).T)
+
 
 
 # def search_obj(point_clouds,img_coords,K,T_im2w,image_shape=(0,0),obj_radius=50,search_radius=100):
