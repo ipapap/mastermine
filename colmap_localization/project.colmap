@@ -1,8 +1,0 @@
-# Image path
-image_path = samples/db
-
-# Database path
-database_path = colmap_localization/reconstruction/database.db
-
-# Project path
-project_path = colmap_localization/reconstruction/reconstruction_georef
