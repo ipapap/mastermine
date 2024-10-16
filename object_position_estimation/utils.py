@@ -116,7 +116,7 @@ def make_transformation_matrix_ENU(rpy,x,y,alt):
 def get_pcd(path="/media/gns/CA78173A781724AB/Users/Gns/Documents/DJI/DJITerra/gryphon.lra@gmail.com/New LiDAR Point Cloud Mission/lidars/terra_las/clouddd513f95a815aba4.las"):
 
     #read point cloud data
-    inFile = laspy.file.File(path, mode="r")
+    inFile = laspy.read(path)
     points = np.vstack((inFile.x, inFile.y, inFile.z)).transpose()
     colors = np.vstack((inFile.red, inFile.green, inFile.blue)).transpose()/ 65535.0
     return points,colors
@@ -222,6 +222,10 @@ def grs87_to_wgs84(points):
     return(np.vstack([x,y,points[:,2]]).T)
 
 
+def wgs84_to_utm(points):
+    e,n,zn,nl = utm.from_latlon(points[:,0],points[:,1])
+
+    return(np.vstack([e,n,points[:,2]]).T)
 
 # def search_obj(point_clouds,img_coords,K,T_im2w,image_shape=(0,0),obj_radius=50,search_radius=100):
 

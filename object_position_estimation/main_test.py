@@ -37,23 +37,22 @@ lla0=im_data['latlon'][0],im_data['latlon'][1],im_data['altitude_abs']#[41.13905
 T_im2w=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
 
 # get point cloud data
-points,colors=utils.get_pcd(path="/home/gns/Downloads/Mpompakas_3_7_24_DUTH_LAS_0.1m.las")
+points,colors=utils.get_pcd(path='/media/gns/8E82C78582C76FEF/Users/johnp/Documents/DJI/DJITerra/gryphon.lra@gmail.com/Terna_lidar1/lidars/terra_las/cloud_merged.las' )
 
 #### transform from ggrs87
 points_downsampled=utils.downsample(points,colors,1)
 
 # convert points to lat lon
-points=utils.grs87_to_wgs84(points)
+points=utils.wgs84_to_utm(points)
 
 # convert point cloud data to ned relative to the reference point
 # points_ned=utils.get_ned(lla0,points)
 
-points_ned=points
 
-utils.visualize_camera(T_im2w,K,points_ned)
+utils.visualize_camera(T_im2w,K,points)
 
 # project the points to the image plane
-res=utils.project_points(points_ned,K,im_data['image'].width,im_data['image'].height,extrinsic_matrix=np.linalg.inv(T_im2w))
+res=utils.project_points(points,K,im_data['image'].width,im_data['image'].height,extrinsic_matrix=np.linalg.inv(T_im2w))
 
 
 ## painting only object points
@@ -61,14 +60,14 @@ object_coords=np.array([3020,1304])#np.array([630,1665])
 tree= scipy.spatial.cKDTree(res[0][res[1]]) # search only the valid points
 inlrs=tree.query_ball_point((np.array([object_coords[0],object_coords[1]])),150) # for some reason the image is flipped
 
-active_points=points_ned[res[1]][inlrs]
+active_points=points[res[1]][inlrs]
 
 #show the active points in red color and the rest in blue
 point_cloud = o3d.geometry.PointCloud()
 point_cloud.points = o3d.utility.Vector3dVector(active_points)
 point_cloud.paint_uniform_color([1, 0, 0])
 point_cloud_inactive = o3d.geometry.PointCloud()
-point_cloud_inactive.points = o3d.utility.Vector3dVector(points_ned)
+point_cloud_inactive.points = o3d.utility.Vector3dVector(points)
 point_cloud_inactive.colors = o3d.utility.Vector3dVector(colors)
 
 # point_cloud_inactive.paint_uniform_color([0, 0, 1])
