@@ -113,13 +113,29 @@ def make_transformation_matrix_ENU(rpy,x,y,alt):
     tMat[:3, 3] = t
     return tMat
 
-def get_pcd(path="/media/gns/CA78173A781724AB/Users/Gns/Documents/DJI/DJITerra/gryphon.lra@gmail.com/New LiDAR Point Cloud Mission/lidars/terra_las/clouddd513f95a815aba4.las"):
+# def get_pcd(path):
 
-    #read point cloud data
-    inFile = laspy.file.File(path, mode="r")
-    points = np.vstack((inFile.x, inFile.y, inFile.z)).transpose()
-    colors = np.vstack((inFile.red, inFile.green, inFile.blue)).transpose()/ 65535.0
-    return points,colors
+#     #read point cloud data
+#     inFile = laspy.file.File(path, mode="r")
+#     points = np.vstack((inFile.x, inFile.y, inFile.z)).transpose()
+#     colors = np.vstack((inFile.red, inFile.green, inFile.blue)).transpose()/ 65535.0
+#     return points,colors
+
+def get_pcd(path):
+    # Reading a LAS file using laspy 2.x
+    las = laspy.read(path)
+    
+    # Extract the point coordinates
+    points = np.vstack((las.x, las.y, las.z)).transpose()
+    
+    # Optionally, extract colors if available
+    try:
+        colors = np.vstack((las.red, las.green, las.blue)).transpose() / 65535.0
+    except AttributeError:
+        # If no color information is available, use a default color (e.g., white)
+        colors = np.ones(points.shape)
+
+    return points, colors
 
 def get_ned(lla0,points):
     #convert points from utm to lat lon and then to ned
@@ -223,6 +239,10 @@ def grs87_to_wgs84(points):
 
 
 
+def wgs84_to_utm(points):
+    e,n,zn,nl = utm.from_latlon(points[:,0],points[:,1])
+
+    return(np.vstack([e,n,points[:,2]]).T)
 # def search_obj(point_clouds,img_coords,K,T_im2w,image_shape=(0,0),obj_radius=50,search_radius=100):
 
 #     relevant_points=[]
