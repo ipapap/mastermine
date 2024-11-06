@@ -48,7 +48,7 @@ def estimate_object_positions(detected_info, image_path, las_file_path):
 
     points, colors = utils.get_pcd(path=las_file_path)
     points_downsampled = utils.downsample(points, colors, 1)
-    points = utils.grs87_to_wgs84(points)
+    points = utils.wgs84_to_utm(points)
     points_ned = points
 
     # Visualize camera
