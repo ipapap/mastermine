@@ -7,7 +7,7 @@ import open3d as o3d
 import utm
 
 
-path='/media/gns/backup/duth@terna/db/sim2/DJI_202407031532_019_Waypoint1/DJI_20240703154308_0004_W.JPG'#'/media/gns/backup/duth@terna/db/sim2/DJI_202407021401_006_l1-mine-m1/DJI_20240702140341_0058_l1-mine-m1.JPG'
+path='samples/queries/DJI_20240703154815_0007_W.JPG'#'/media/gns/backup/duth@terna/db/sim2/DJI_202407021401_006_l1-mine-m1/DJI_20240702140341_0058_l1-mine-m1.JPG'
 fx=3600.522132
 fy=3600.058364
 cx = 2730.258782#im.width / 2  # principal point x-coordinate
@@ -37,10 +37,10 @@ lla0=im_data['latlon'][0],im_data['latlon'][1],im_data['altitude_abs']#[41.13905
 T_im2w=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
 
 # get point cloud data
-points,colors=utils.get_pcd(path='/media/gns/8E82C78582C76FEF/Users/johnp/Documents/DJI/DJITerra/gryphon.lra@gmail.com/Terna_lidar1/lidars/terra_las/cloud_merged.las' )
+points,colors=utils.get_pcd(path='/home/gns/Downloads/DATA/cloud_merged.las' )
 
 #### transform from ggrs87
-points_downsampled=utils.downsample(points,colors,1)
+points_downsampled=points#utils.downsample(points,colors,1)
 
 # convert points to lat lon
 points=utils.wgs84_to_utm(points)

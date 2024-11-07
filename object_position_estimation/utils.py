@@ -117,7 +117,7 @@ def get_pcd(path="/media/gns/CA78173A781724AB/Users/Gns/Documents/DJI/DJITerra/g
 
     #read point cloud data
     inFile = laspy.read(path)
-    points = np.vstack((inFile.x, inFile.y, inFile.z)).transpose()
+    points = np.vstack((inFile.y, inFile.x, inFile.z)).transpose()
     colors = np.vstack((inFile.red, inFile.green, inFile.blue)).transpose()/ 65535.0
     return points,colors
 
