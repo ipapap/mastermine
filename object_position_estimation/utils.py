@@ -126,7 +126,7 @@ def get_pcd(path):
     las = laspy.read(path)
     
     # Extract the point coordinates
-    points = np.vstack((las.x, las.y, las.z)).transpose()
+    points = np.vstack((las.y, las.x, las.z)).transpose()
     
     # Optionally, extract colors if available
     try:
