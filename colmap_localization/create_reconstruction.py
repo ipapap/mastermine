@@ -8,7 +8,7 @@ import numpy as np
 colmap_path = 'colmap'
 
 # Set the path to the images directory
-images_dir = 'samples/db'
+images_dir = '/media/gns/backup/duth@terna/db'#'samples/db'
 
 # Set the path to the output directory for the reconstruction
 output_dir = 'colmap_localization/reconstruction'
@@ -93,5 +93,7 @@ with open(f'{output_dir}/georef.txt', 'w') as f:
 # georeference the reconstruction using model aligner and the georeference file
 os.makedirs(os.path.join(output_dir,'reconstruction_georef'), exist_ok=True)
 #https://colmap.github.io/faq.html#geo-registration  not working
-os.system(f'{colmap_path} model_aligner --input_path {output_dir}/0 --output_path {output_dir}/reconstruction_georef --ref_images_path {output_dir}/georef.txt --robust_alignment_max_error 1 --robust_alignment 1')
+# os.system(f'{colmap_path} model_aligner --input_path {output_dir}/0 --output_path {output_dir}/reconstruction_georef --ref_images_path {output_dir}/georef.txt --robust_alignment_max_error 1 --robust_alignment 1')
+
+os.system(f'{colmap_path} model_aligner --input_path {output_dir}/0 --output_path {output_dir}/reconstruction_georef --ref_images_path {output_dir}/georef.txt --alignment_max_error 1 --ref_is_gps 1 --merge_image_and_ref_origins 1')
 # read all images and get the gps coordinates and orientation
