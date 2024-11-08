@@ -47,7 +47,7 @@ def estimate_object_positions(detected_info, image_path, las_file_path):
     T_im2w=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
 
     points, colors = utils.get_pcd(path=las_file_path)
-    points_downsampled = utils.downsample(points, colors, 1)
+    points_downsampled = points # utils.downsample(points, colors, 1)
     points = utils.wgs84_to_utm(points)
     points_ned = points
 

@@ -121,28 +121,12 @@ def make_transformation_matrix_ENU(rpy,x,y,alt):
 #     return points,colors
 
 def get_pcd(path):
-<<<<<<< HEAD
     #read point cloud data
     inFile = laspy.read(path)
     points = np.vstack((inFile.y, inFile.x, inFile.z)).transpose()
     colors = np.vstack((inFile.red, inFile.green, inFile.blue)).transpose()/ 65535.0
     return points,colors
-=======
-    # Reading a LAS file using laspy 2.x
-    las = laspy.read(path)
-    
-    # Extract the point coordinates
-    points = np.vstack((las.y, las.x, las.z)).transpose()
-    
-    # Optionally, extract colors if available
-    try:
-        colors = np.vstack((las.red, las.green, las.blue)).transpose() / 65535.0
-    except AttributeError:
-        # If no color information is available, use a default color (e.g., white)
-        colors = np.ones(points.shape)
 
-    return points, colors
->>>>>>> b1d6713f1622b724fa6ccea437aadb443a192549
 
 def get_ned(lla0,points):
     #convert points from utm to lat lon and then to ned
