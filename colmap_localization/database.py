@@ -206,18 +206,19 @@ class COLMAPDatabase(sqlite3.Connection):
         image_id=None,
     ):
         cursor = self.execute(
-            "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO images VALUES (?, ?, ?)",
+            # "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 image_id,
                 name,
                 camera_id,
-                prior_q[0],
-                prior_q[1],
-                prior_q[2],
-                prior_q[3],
-                prior_t[0],
-                prior_t[1],
-                prior_t[2],
+                # prior_q[0],
+                # prior_q[1],
+                # prior_q[2],
+                # prior_q[3],
+                # prior_t[0],
+                # prior_t[1],
+                # prior_t[2],
             ),
         )
         return cursor.lastrowid
