@@ -23,7 +23,7 @@ def run_colmap(database_path, image_path, output_path, add_new_image=False):
     subprocess.run([
         "colmap", matcher_type,
         "--database_path", database_path,
-        "--SiftMatching.max_error", "8.0",
+        "--SiftMatching.max_distance", "8.0",
         "--SiftMatching.max_num_matches", "10000"
     ], check=True)
 
@@ -42,27 +42,23 @@ def run_colmap(database_path, image_path, output_path, add_new_image=False):
         "--Mapper.ba_global_max_num_iterations", "100"
     ], check=True)
 
-    # Check if SfM output is in `sfm/0` or directly in `sfm`
     sfm_subdir = os.path.join(sfm_output, "0") if os.path.exists(os.path.join(sfm_output, "0")) else sfm_output
+    
+    subprocess.run([
+        "colmap", "model_converter",
+        "--input_path", sfm_subdir,
+        "--output_path", sfm_subdir,
+        "--output_type", "TXT"
+    ], check=True)
+
+    # Check if SfM output is in `sfm/0` or directly in `sfm`
     required_files = ["cameras.txt", "images.txt", "points3D.txt"]
     missing_files = [f for f in required_files if not os.path.exists(os.path.join(sfm_subdir, f))]
     
     if missing_files:
         print("Error: Missing SfM output files:", missing_files)
         return
-
-    # Convert reconstruction to text format
-    print("Converting reconstruction to text format...")
-    text_model_path = os.path.join(output_path, "text_model")
-    if not os.path.exists(text_model_path):
-        os.makedirs(text_model_path)
-    
-    subprocess.run([
-        "colmap", "model_converter",
-        "--input_path", sfm_subdir,
-        "--output_path", text_model_path,
-        "--output_type", "TXT"
-    ], check=True)
+   
 
     print("Reconstruction saved to:", output_path)
 
@@ -74,7 +70,7 @@ def add_new_image(database_path, image_path, new_image_path, output_path):
     
     run_colmap(database_path, image_path, output_path, add_new_image=True)
 
-database_path = os.path.join(base_path, "database.db")
+database_path = os.path.join('output_queries/', "database.db")
 initial_image_path = os.path.join(base_path, "samples/queries")
 new_image_path = os.path.join(base_path, "samples/new_entries")
 output_path = os.path.join(os.path.dirname(__file__), "output_queries")
