@@ -46,7 +46,7 @@ def georef(images_dir,input_dir,output_dir,colmap_path='colmap'):
     # georeference the reconstruction using model aligner and the georeference file
     # os.makedirs(os.path.join(output_dir,'reconstruction_georef'), exist_ok=True)
     #https://colmap.github.io/faq.html#geo-registration  not working
-    os.system(f'{colmap_path} model_aligner --input_path {input_dir} --output_path {output_dir} --ref_images_path {output_dir}/georef.txt --alignment_max_error 1 --ref_is_gps 1 --merge_image_and_ref_origins 1')
+    os.system(f'{colmap_path} model_aligner --input_path {input_dir} --output_path {output_dir} --ref_images_path {output_dir}/georef.txt --alignment_max_error 1 --ref_is_gps 1 --merge_image_and_ref_origins 1 --alignment_type ecef')
 
 
 if __name__ == '__main__':
