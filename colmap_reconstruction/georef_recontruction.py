@@ -158,8 +158,8 @@ def run_georeferenced_reconstruction(database_path, image_path, output_path, ref
             "--input_path", os.path.join(sfm_output, "0"),
             "--output_path", aligned_output,
             "--ref_images_path", ref_images_path,
-            "--robust_alignment", "1",
-            "--robust_alignment_max_error", "0.1"
+            "--alignment_max_error" , "1",
+            "--ref_is_gps",  "1" 
         ], "Model alignment")
         
         # Convert binary aligned model to text format
@@ -184,7 +184,7 @@ def run_georeferenced_reconstruction(database_path, image_path, output_path, ref
         print("Error: Aligned images file not found. Check if alignment was successful.")
 
 # Define paths
-database_path = os.path.join(base_path, "database_georef.db")
+database_path = os.path.join('output_georef/', "database_georef.db")
 image_path = os.path.join(base_path, "samples/db")
 output_path = os.path.join(os.path.dirname(__file__), "output_georef")
 ref_images_path = os.path.join(output_path, "ref_images.txt")

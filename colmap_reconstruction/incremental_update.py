@@ -2,6 +2,34 @@ import os
 import subprocess
 
 
+def convert_bin_to_txt(aligned_output):
+    """Convert binary files to text format for inspection."""
+    print("Converting binary aligned model files to text format...")
+
+    # Iterate over all subdirectories
+    for subdir in os.listdir(aligned_output):
+        model_dir = os.path.join(aligned_output, subdir)
+        if not os.path.isdir(model_dir):
+            continue
+
+        required_files = ['cameras.bin', 'images.bin', 'points3D.bin']
+        missing_files = [f for f in required_files if not os.path.exists(os.path.join(model_dir, f))]
+        if missing_files:
+            print(f"Warning: Missing model files in {model_dir}: {missing_files}")
+            continue
+
+        try:
+            subprocess.run([
+                "colmap", "model_converter",
+                "--input_path", model_dir,
+                "--output_path", model_dir,
+                "--output_type", "TXT"
+            ], check=True)
+            print(f"Model in {model_dir} converted to TXT format.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error during model conversion in {model_dir}: {e}")
+
+
 def incremental_update(database_path, queries_path, new_image_path, output_path):
     print("Running feature extraction for new images...")
     subprocess.run([
@@ -47,6 +75,7 @@ def incremental_update(database_path, queries_path, new_image_path, output_path)
             ], check=True)
 
     print("Incremental update completed. Updated model saved to:", sfm_output)
+    convert_bin_to_txt(sfm_output)
 
 # Paths
 base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
