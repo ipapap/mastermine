@@ -1,13 +1,37 @@
 # Mastermine
+Create a new conda env
+---------------------
+```
+$ conda create -n mastermine python=3.8 -y
+$ conda activate mastermine
+
+```
+
 
 Install the requirements
 ---------------------
 
 ```
+$ conda install -c conda-forge boost eigen=3.3.7 freeimage flann glew glog \
+    gflags sqlite libpng cgal suitesparse ceres-solver cgal
+$ sudo apt install libcgal-dev libcgal-qt5-dev
 $ pip install -r requirements.txt
-$ sudo apt install colmap
 ```
-
+Download and Install colmap
+---------------------
+We used colmap 3.10 version.
+Git clone colmap here[https://github.com/colmap/colmap/releases/tag/3.10]
+```
+$ cd ~/colmap-3.10
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make -j$(nproc)
+```
+if you encounter cuda error you can build without cuda 
+```
+$ cmake .. -DCUDA_ENABLED=OFF
+```
 
 Annotation tool used for class detection
 ---------------------
