@@ -15,12 +15,37 @@ from georef import georef
 # from create_reconstruction import *
 import pycolmap
 import shutil
-def get_features(image_path):
+
+# from r2d2.extract import load_network, extract_multiscale, NonMaxSuppression
+# r2d2_path = 'colmap_localization/r2d2/models/r2d2_WASF_N8_big.pt'  # Path to downloaded weights
+# r2d2_model = load_network(r2d2_path)
+# r2d2_model.eval() 
+# r2d2_detector= NonMaxSuppression()
+import torch
+
+def get_features_sift(image_path):
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     sift = cv2.SIFT_create(20000)
     keypoints, descriptors = sift.detectAndCompute(image, None)
     keypoints = np.array([[kp.pt[0], kp.pt[1]] for kp in keypoints])
     return keypoints, descriptors
+
+def get_features_r2d2(image_path):
+    # Load the R2D2 model
+ # Set the model to evaluation mode
+
+    # Load the image
+    image = Image.open(image_path).convert('RGB')
+    img_np = np.array(image)  # Convert to numpy array
+    img_tensor = torch.from_numpy(img_np).float().permute(2, 0, 1) / 255.0  # To tensor
+
+    # Extract keypoints and descriptors using R2D2
+    with torch.no_grad():
+        keypoints, descriptors,scores = extract_multiscale(r2d2_model.cuda(), img_tensor.unsqueeze(0).cuda(), r2d2_detector,min_scale=0.,max_scale=1,min_size=256,max_size=1024)
+        keypoints = keypoints.cpu().numpy()[:,:2]  # Convert back to numpy for compatibility
+        descriptors = descriptors.cpu().numpy()
+
+    return keypoints, descriptors 
 
 # def get_matches(features1, features2):
 #     bf = cv2.BFMatcher()
@@ -127,14 +152,16 @@ def create_database(database_path, images_path):
             print(f'Reused existing camera: ID {camera_id}')
 
         # Generate features
-        keypoints, descriptors = get_features(image_path)
+        # keypoints, descriptors = get_features_r2d2(image_path)
+        keypoints, descriptors = get_features_sift(image_path)
 
         # Add image and keypoints to database
         image_name = os.path.basename(image_path)
 
         image_id = db.add_image(image_name, camera_id)
         db.add_keypoints(image_id, keypoints)
-        db.add_descriptors(image_id ,descriptors)
+        db.add_descriptors(image_id ,descriptors,type=np.uint8)# float for r2d2
+        # db.add_descriptors(image_id ,descriptors,type=np.float32)# float for r2d2
         position= utm.from_latlon(*camera_params['gps'])[:2]
         # db.add_pose_prior(image_id,[position[0],position[1]])
         image_ids.append((image_id, descriptors))
