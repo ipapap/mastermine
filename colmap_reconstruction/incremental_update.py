@@ -17,8 +17,8 @@ def run_colmap_feature_extractor(database_path, image_path):
             "colmap", "feature_extractor",
             "--database_path", database_path,
             "--image_path", temp_dir,  # Use the temporary directory
-            "--SiftExtraction.max_num_features", "50000", # Test 10000 features
-            "--ImageReader.camera_model", "OPENCV" # Remove if recontruction fails
+            "--SiftExtraction.max_num_features", "5000", # Test 10000 features
+            "--ImageReader.camera_model", "SIMPLE_RADIAL" # Remove if recontruction fails
         ], check=True)
 
 
@@ -43,10 +43,24 @@ def process_image_incrementally(database_path, reconstruction_path, image_path, 
         output_path (str): Path to save the updated reconstruction.
     """
     # Step 1: Extract features for the new image
-    run_colmap_feature_extractor(database_path, image_path)
-
+    # run_colmap_feature_extractor(database_path, image_path)
+    print(f"Running feature extractor for image: {image_path}")
+    subprocess.run([
+        "colmap", "feature_extractor",
+        "--database_path", database_path,
+        "--image_path", os.path.dirname(image_path),  # Use the temporary directory
+        "--SiftExtraction.max_num_features", "5000", # Test 10000 features
+        "--ImageReader.camera_model", "SIMPLE_RADIAL" # Remove if recontruction fails
+        ], check=True)
     # Step 2: Match features between the new image and existing images
-    run_colmap_matcher(database_path)
+    # run_colmap_matcher(database_path)
+    print("Running feature matching...")
+    subprocess.run([
+        "colmap", "sequential_matcher",
+        "--database_path", database_path,
+        "--SequentialMatching.overlap", "10",
+        "--SequentialMatching.quadratic_overlap", "0"
+    ], check=True)
 
     # Step 3: Run COLMAP mapper to estimate pose and integrate the new image
     print(f"Running COLMAP mapper to integrate image: {image_path}")
@@ -69,8 +83,11 @@ def process_image_incrementally(database_path, reconstruction_path, image_path, 
         "--database_path", database_path,
         "--input_path", incremental_output,  # Use the existing reconstruction as input
         "--output_path", incremental_output,
-        "--clear_points", "0"
+        "--clear_points", "0",
+        "--Mapper.ba_global_max_refinements" , "1",
+        "--Mapper.ba_local_num_images", "3"
     ], check=True)
+    
 
     # Step 4: Reload the updated reconstruction
     print("Reloading the updated reconstruction...")
@@ -92,7 +109,7 @@ def incremental_update_one_image_at_a_time(database_path, model_path, new_images
     reconstruction = pycolmap.Reconstruction(model_path)
     print(f"Loaded reconstruction with {len(reconstruction.images)} images.")
 
-    # Process each new image one at a time
+    # # Process each new image one at a time
     for image_name in sorted(os.listdir(new_images_dir)):
         image_path = os.path.join(new_images_dir, image_name)
         if not os.path.isfile(image_path):
@@ -100,7 +117,7 @@ def incremental_update_one_image_at_a_time(database_path, model_path, new_images
 
         print(f"Processing image: {image_name}")
         process_image_incrementally(database_path, model_path, image_path, output_path)
-
+        break
 
 # Paths
 base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
