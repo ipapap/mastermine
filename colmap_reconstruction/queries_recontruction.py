@@ -38,7 +38,7 @@ def initial_reconstruction(database_path, queries_path, output_path):
         "colmap", "feature_extractor",
         "--database_path", database_path,
         "--image_path", queries_path,
-        "--SiftExtraction.max_num_features", "50000",
+        "--SiftExtraction.max_num_features", "10000",
         "--ImageReader.camera_model", "OPENCV"
     ], check=True)
 
@@ -46,7 +46,7 @@ def initial_reconstruction(database_path, queries_path, output_path):
     subprocess.run([
         "colmap", "exhaustive_matcher",
         "--database_path", database_path,
-        "--SiftMatching.max_distance", "25.0",
+        "--SiftMatching.max_distance", "100.0",
         "--SiftMatching.max_num_matches", "100000"
     ], check=True)
 
