@@ -1,7 +1,7 @@
 import torch
 import sys
-sys.path.append('/home/gns/dev/gsv-cities/')
-from main import VPRModel
+# sys.path.append('/home/gns/dev/gsv-cities/')
+from vpr.main import VPRModel
 
 
 from PIL import Image
@@ -50,7 +50,7 @@ model = VPRModel(
                     'out_channels': 512,
             },
     )
-state_dict = torch.load('/home/gns/dev/gsv-cities/weights/myresnet_e2wrn18c4_epoch(26)_step(36477)_R1[0.6433]_R5[0.7637].ckpt') # link to the trained weights
+state_dict = torch.load('colmap_localization/vpr/weights/myresnet_e2wrn18c4_epoch(26)_step(36477)_R1[0.6433]_R5[0.7637].ckpt') # link to the trained weights
 # state_dict = torch.load('../ml-runs/986379816044858929/b6844bb810414cfeb2dee0e6152721d6/artifacts/model/checkpoints/resnet50_epoch(29)_step(40530)_R1[0.7052]_R5[0.8222]/resnet50_epoch(29)_step(40530)_R1[0.7052]_R5[0.8222].ckpt') # link to the trained weights
 
 model.load_state_dict(state_dict['state_dict'])
