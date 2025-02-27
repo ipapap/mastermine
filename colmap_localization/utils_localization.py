@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+import os
 
 # img_sequence_path = 'colmap_localization/reconstruction/reconstruction_georef/images.txt'
 # txt: image_id, qw, qx, qy, qz, tx, ty, tz, camera_id, name / if line not begins with int, skip
@@ -21,3 +22,17 @@ def read_img_sequence_poses_to_matrix(img_sequence_path):
         else:
             flag=True
     return np.array(poses)
+
+
+# def convert_bin_to_txt(aligned_output):
+#     """Convert binary files to text format for inspection."""
+#     print("Converting binary aligned model files to text format...")
+#     try:
+#         run_command([
+#             "colmap", "model_converter",
+#             "--input_path", aligned_output,
+#             "--output_path", aligned_output,
+#             "--output_type", "TXT"
+#         ], "Model conversion to text")
+#     except Exception as e:
+#         print(f"Error during model conversion: {e}")

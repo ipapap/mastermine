@@ -309,15 +309,27 @@ if os.path.exists('colmap_localization/reconstruction/aligned'):
     shutil.rmtree('colmap_localization/reconstruction/aligned')
 os.makedirs('colmap_localization/reconstruction/aligned', exist_ok=True)
 
+
+ecef = pyproj.Proj(proj="geocent", ellps="WGS84", datum="WGS84")  # ECEF
+wgs84 = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")  # WGS84 Geodetic
+transformer = pyproj.Transformer.from_proj(ecef, wgs84)
+
 # save poses_matches to file for the aligner, in format: DJI_20240702140512_0094_l1-mine-m1.JPG 38.749497268 23.395930556 63.405
 with open('colmap_localization/reconstruction/aligned/poses_matches.txt', 'w') as f:
     for pose_match in poses_matches:
         if pose_match[1] is not None:
-            f.write(f'{pose_match[0]} {pose_match[1][0,3]} {pose_match[1][1,3]} {pose_match[1][2,3]}\n')
+            lon, lat, alt = transformer.transform(*pose_match[1][:3,3])  
+            #save in georef format
+            f.write(f'{pose_match[0]} {lat} {lon} {alt}\n')
+            # f.write(f'{pose_match[0]} {pose_match[1][0,3]} {pose_match[1][1,3]} {pose_match[1][2,3]}\n')
 
 
 # run model aligner usign terminal command
-os.system('colmap model_aligner --input_path colmap_localization/reconstruction/waypoint --output_path colmap_localization/reconstruction/aligned --ref_images_path colmap_localization/reconstruction/aligned/poses_matches.txt --alignment_max_error 1 --ref_is_gps 0 --merge_image_and_ref_origins 1 --alignment_type ecef')
+os.system('colmap model_aligner --input_path colmap_localization/reconstruction/waypoint --output_path colmap_localization/reconstruction/aligned --ref_images_path colmap_localization/reconstruction/aligned/poses_matches.txt --alignment_max_error 1 --alignment_type ecef')
+
+#convert output to txt
+os.system('colmap model_converter --input_path colmap_localization/reconstruction/aligned --output_path colmap_localization/reconstruction/aligned --output_type TXT')
+
 # load the aligned reconstruction
 poses_aligned=utils_localization.read_img_sequence_poses_to_matrix('colmap_localization/reconstruction/aligned/images.txt')
 
@@ -325,19 +337,20 @@ poses_aligned=utils_localization.read_img_sequence_poses_to_matrix('colmap_local
 for image_id in range(0,len(images)+0):
     im_data = utils.read_image(IMG_PATH_QUERY+images[image_id])
     T_gt=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
+    gt_x,gt_y,gt_alt =T_gt[:3,3]
     #get the error
     
     # t=np.linalg.inv(poses_aligned[image_id])[:3,3]
-    t= poses_aligned[image_id][:3,3]
+    t= np.linalg.inv(poses_aligned[image_id])[:3,3]
     # t=pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)[:3,3]
     # ecef to utm
     ecef = pyproj.Proj(proj="geocent", ellps="WGS84", datum="WGS84")  # ECEF
     wgs84 = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")  # WGS84 Geodetic
     transformer = pyproj.Transformer.from_proj(ecef, wgs84)
-    lon, lat, alt = transformer.transform(*t)  
+    lon,lat, alt = transformer.transform(*t)  
     x,y,_,_=utm.from_latlon(lat,lon)
 
-    gt_x,gt_y,gt_alt = T_gt[:3,3]
+    
     # rot_error=rotation_error(pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)[:3,:3],T_gt[:3,:3])
     trans_error=np.linalg.norm(np.asarray([x,y,alt])-np.asarray([gt_x,gt_y,gt_alt]))
 
