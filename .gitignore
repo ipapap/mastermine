@@ -2,3 +2,4 @@ terna/
 __pycache__/
 colmap_localization/reconstruction/
 colmap_localization/vpr/weights/myresnet_e2wrn18c4_epoch(26)_step(36477)_R1[0.6433]_R5[0.7637].ckpt
+colmap_localization/vpr/weights/myresnet_e2wrn18c4_epoch(26)_step(36477)_R1\[0.6433]_R5\[0.7637].ckpt

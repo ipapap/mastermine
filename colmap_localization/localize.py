@@ -13,9 +13,10 @@ from PIL import Image, ImageOps
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import object_position_estimation.utils as utils
-
+import utils_localization
 import utm
 import pyproj
+import shutil
 IMG_PATH_QUERY = '/home/gns/Documents/terna_colmap_reconstruction/queries/DJI_202407031532_019_Waypoint1/'
 # DATABASE_PATH_QUERY = BASE_PATH_QUERY + 'database.db'
 IMG_PATH_DB = '/home/gns/Documents/terna_colmap_reconstruction/DJI_202407031342_007_H20-bobakas-1/'#'/home/gns/Documents/terna_colmap_reconstruction/'
@@ -42,6 +43,8 @@ reconstruction_path = '/home/gns/Documents/terna_colmap_reconstruction/sift/smal
 #     height=3040,
 #     params=[3645.8096052435262, 4056/2, 3040/2],
 # )
+
+#for h20 camera
 camera = pycolmap.Camera(
     model='OPENCV',
     width=4056,
@@ -49,6 +52,13 @@ camera = pycolmap.Camera(
     params=[2931.6527767663661, 2940.4279383883672 ,2028 ,1520 ,0.068809984031020663, -0.17458781534169701, 0.0010840641924016881, 5.0892999338629291e-05],
 )
 
+# #for l1 camera !!
+# camera = pycolmap.Camera(
+#     model='OPENCV',
+#     width=5472,
+#     height=3648,
+#     params=[3714.3774966817214 ,3664.7406544074606 ,2736 ,1824 ,-0.0042931479985967502 ,0.0008636320981303202, -0.0051340506677993057, -0.00026089743088417519],
+# )
 def feature_matching(des1,des2):
     #lowe ratio test and get the inliers
     matcher = cv2.BFMatcher()
@@ -73,7 +83,7 @@ def feature_matching(des1,des2):
     return good,inds1,inds2
 
 
-def localize_image(image_path,frames,frames_descriptors,encoder,top_k=1):
+def localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshold=0.5):
     # des,kp=get_features(image_id,DATABASE_PATH_QUERY)
 
     img = Image.open(image_path).convert('RGB')
@@ -125,7 +135,7 @@ def localize_image(image_path,frames,frames_descriptors,encoder,top_k=1):
 
     ## Rest for validating the result with gt 
     if pose is  None: return
-    
+    if pose['num_inliers']/len(points2d) < threshold and pose['num_inliers']>500 : return
     quat=pose['cam_from_world'].rotation
     t=pose['cam_from_world'].translation
     T=pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)
@@ -282,10 +292,63 @@ else:
 
 
 ### FIND THE QUERIES AND LOCALIZE ### 
-images=os.listdir(IMG_PATH_QUERY)
+poses_matches=[]
+images=os.listdir(IMG_PATH_QUERY)[:20]
 for image_id in range(0,len(images)+0):
     image_path=IMG_PATH_QUERY+images[image_id]
-    pose=localize_image(image_path,frames,frames_descriptors,encoder,top_k=1)
+    pose=localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshold=0.8)#at least n inliers
+
+    poses_matches.append([images[image_id],pose])
+
+img_sequence_path = 'colmap_localization/reconstruction/waypoint/images.txt' # the sequence of queries in buffer
+poses_queries=utils_localization.read_img_sequence_poses_to_matrix(img_sequence_path)
+
+
+# make output directory, delete if exists and create new
+if os.path.exists('colmap_localization/reconstruction/aligned'):
+    shutil.rmtree('colmap_localization/reconstruction/aligned')
+os.makedirs('colmap_localization/reconstruction/aligned', exist_ok=True)
+
+# save poses_matches to file for the aligner, in format: DJI_20240702140512_0094_l1-mine-m1.JPG 38.749497268 23.395930556 63.405
+with open('colmap_localization/reconstruction/aligned/poses_matches.txt', 'w') as f:
+    for pose_match in poses_matches:
+        if pose_match[1] is not None:
+            f.write(f'{pose_match[0]} {pose_match[1][0,3]} {pose_match[1][1,3]} {pose_match[1][2,3]}\n')
+
+
+# run model aligner usign terminal command
+os.system('colmap model_aligner --input_path colmap_localization/reconstruction/waypoint --output_path colmap_localization/reconstruction/aligned --ref_images_path colmap_localization/reconstruction/aligned/poses_matches.txt --alignment_max_error 1 --ref_is_gps 0 --merge_image_and_ref_origins 1 --alignment_type ecef')
+# load the aligned reconstruction
+poses_aligned=utils_localization.read_img_sequence_poses_to_matrix('colmap_localization/reconstruction/aligned/images.txt')
+
+# check result usign exif data
+for image_id in range(0,len(images)+0):
+    im_data = utils.read_image(IMG_PATH_QUERY+images[image_id])
+    T_gt=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
+    #get the error
+    
+    # t=np.linalg.inv(poses_aligned[image_id])[:3,3]
+    t= poses_aligned[image_id][:3,3]
+    # t=pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)[:3,3]
+    # ecef to utm
+    ecef = pyproj.Proj(proj="geocent", ellps="WGS84", datum="WGS84")  # ECEF
+    wgs84 = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")  # WGS84 Geodetic
+    transformer = pyproj.Transformer.from_proj(ecef, wgs84)
+    lon, lat, alt = transformer.transform(*t)  
+    x,y,_,_=utm.from_latlon(lat,lon)
+
+    gt_x,gt_y,gt_alt = T_gt[:3,3]
+    # rot_error=rotation_error(pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)[:3,:3],T_gt[:3,:3])
+    trans_error=np.linalg.norm(np.asarray([x,y,alt])-np.asarray([gt_x,gt_y,gt_alt]))
+
+    print('Translation error:',trans_error)
+    # print('Rotational error: ',rot_error) ## needs fixing, it compares ENU with colmap orientation
+    print('\n')
+
+
+
+
+
 
 
 
