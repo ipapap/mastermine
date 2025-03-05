@@ -8,6 +8,7 @@ def read_img_sequence_poses_to_matrix(img_sequence_path):
     with open(img_sequence_path, 'r') as f:
         lines = f.readlines()
     poses = []
+    img_names=[]
     flag=True
     for line in lines:
         if line[0] == '#':
@@ -18,10 +19,12 @@ def read_img_sequence_poses_to_matrix(img_sequence_path):
             pose[:3, :3] = scipy.spatial.transform.Rotation.from_quat([float(line[1]),float(line[2]), float(line[3]), float(line[4])],scalar_first=True).as_matrix()
             pose[:3, 3] = [float(line[5]), float(line[6]), float(line[7])]
             poses.append(pose)
+            img_names.append(line[-1])
+
             flag=False
         else:
             flag=True
-    return np.array(poses)
+    return np.array(poses),np.array(img_names)
 
 
 # def convert_bin_to_txt(aligned_output):

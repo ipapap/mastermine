@@ -135,7 +135,8 @@ def localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshol
 
     ## Rest for validating the result with gt 
     if pose is  None: return
-    if pose['num_inliers']/len(points2d) < threshold and pose['num_inliers']>500 : return
+    # if pose['num_inliers']/len(points2d) < threshold and pose['num_inliers']>500 : return
+    if pose['num_inliers']<300 : return
     quat=pose['cam_from_world'].rotation
     t=pose['cam_from_world'].translation
     T=pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)
@@ -293,7 +294,7 @@ else:
 
 ### FIND THE QUERIES AND LOCALIZE ### 
 poses_matches=[]
-images=os.listdir(IMG_PATH_QUERY)[:20]
+images=sorted(os.listdir(IMG_PATH_QUERY))[:40]
 for image_id in range(0,len(images)+0):
     image_path=IMG_PATH_QUERY+images[image_id]
     pose=localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshold=0.8)#at least n inliers
@@ -301,7 +302,7 @@ for image_id in range(0,len(images)+0):
     poses_matches.append([images[image_id],pose])
 
 img_sequence_path = 'colmap_localization/reconstruction/waypoint/images.txt' # the sequence of queries in buffer
-poses_queries=utils_localization.read_img_sequence_poses_to_matrix(img_sequence_path)
+poses_queries,names_queries=utils_localization.read_img_sequence_poses_to_matrix(img_sequence_path)
 
 
 # make output directory, delete if exists and create new
@@ -331,7 +332,10 @@ os.system('colmap model_aligner --input_path colmap_localization/reconstruction/
 os.system('colmap model_converter --input_path colmap_localization/reconstruction/aligned --output_path colmap_localization/reconstruction/aligned --output_type TXT')
 
 # load the aligned reconstruction
-poses_aligned=utils_localization.read_img_sequence_poses_to_matrix('colmap_localization/reconstruction/aligned/images.txt')
+poses_aligned,names=utils_localization.read_img_sequence_poses_to_matrix('colmap_localization/reconstruction/aligned/images.txt')
+idx=np.argsort(names)
+names=names[idx]
+poses_aligned=poses_aligned[idx]
 
 # check result usign exif data
 for image_id in range(0,len(images)+0):
@@ -361,7 +365,58 @@ for image_id in range(0,len(images)+0):
 
 
 
+# def viz():
+#     traj2=[]
+#     traj1=[]
+#     for image_id in range(0,len(images)+0):
+#         im_data = utils.read_image(IMG_PATH_QUERY+images[image_id])
+#         T_gt=utils.make_transformation_matrix_ENU(im_data['gimbal_yrp'],im_data['utm'][0],im_data['utm'][1],im_data['altitude_abs']) # create transformation matrix
+#         gt_x,gt_y,gt_alt =T_gt[:3,3]
+#         traj2.append(T_gt[:3,3])
+#         #get the error
+        
+#         # t=np.linalg.inv(poses_aligned[image_id])[:3,3]
+#         t= np.linalg.inv(poses_aligned[image_id])[:3,3]
+#         # t=pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)[:3,3]
+#         # ecef to utm
+#         ecef = pyproj.Proj(proj="geocent", ellps="WGS84", datum="WGS84")  # ECEF
+#         wgs84 = pyproj.Proj(proj="latlong", ellps="WGS84", datum="WGS84")  # WGS84 Geodetic
+#         transformer = pyproj.Transformer.from_proj(ecef, wgs84)
+#         lon,lat, alt = transformer.transform(*t)  
+#         x,y,_,_=utm.from_latlon(lat,lon)
+#         traj1.append(np.asarray([x,y,alt]))
+#     points1=np.asarray(traj1)
+#     points2=np.asarray(traj2)
 
+#     import numpy as np
+#     import matplotlib.pyplot as plt
+#     from mpl_toolkits.mplot3d import Axes3D
+
+
+
+#     # Create a figure for 3D plotting
+#     fig = plt.figure(figsize=(10, 7))
+#     ax = fig.add_subplot(111, projection='3d')
+
+#     # Plot first set (e.g., red circles)
+#     ax.scatter(points1[:, 0], points1[:, 1], points1[:, 2], c='r', marker='o', label='Model 1')
+
+#     # Plot second set (e.g., blue triangles)
+#     ax.scatter(points2[:, 0], points2[:, 1], points2[:, 2], c='b', marker='^', label='Model 2')
+
+#     # Set labels and title
+#     ax.set_xlabel('X')
+#     ax.set_ylabel('Y')
+#     ax.set_zlabel('Z')
+#     ax.set_title("3D Visualization of Two Point Sets")
+
+
+#     # Show legend
+#     ax.legend()
+
+#     # Display the plot
+#     plt.axis('equal')
+#     plt.show()
 
 
 
