@@ -9,8 +9,9 @@ import laspy
 import open3d as o3d
 import scipy
 
-def read_image(path):
-    im=Image.open(path)
+# def read_image(im):
+def read_meta(im):
+    # im=Image.open(path)
     im_data=im.getxmp()['xmpmeta']['RDF']['Description']
     if im_data['Model'] == 'ZH20':
 

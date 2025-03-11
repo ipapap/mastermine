@@ -17,12 +17,12 @@ import utils_localization
 import utm
 import pyproj
 import shutil
-IMG_PATH_QUERY = '/home/gns/Documents/terna_colmap_reconstruction/queries/DJI_202407031532_019_Waypoint1/'
-# DATABASE_PATH_QUERY = BASE_PATH_QUERY + 'database.db'
-IMG_PATH_DB = '/home/gns/Documents/terna_colmap_reconstruction/DJI_202407031342_007_H20-bobakas-1/'#'/home/gns/Documents/terna_colmap_reconstruction/'
-DATABASE_PATH_DB = '/home/gns/Documents/terna_colmap_reconstruction/sift/small/' + 'database.db'
-
-reconstruction_path = '/home/gns/Documents/terna_colmap_reconstruction/sift/small/georeferenced/'#'/home/gns/Documents/terna_colmap_reconstruction/georeferenced/reconstruction_georef/'
+import subprocess
+# IMG_PATH_QUERY = '/home/gns/Documents/terna_colmap_reconstruction/queries/DJI_202407031532_019_Waypoint1/'
+# # DATABASE_PATH_QUERY = BASE_PATH_QUERY + 'database.db'
+# IMG_PATH_DB = '/home/gns/Documents/terna_colmap_reconstruction/DJI_202407031342_007_H20-bobakas-1/'#'/home/gns/Documents/terna_colmap_reconstruction/'
+# DATABASE_PATH_DB = '/home/gns/Documents/terna_colmap_reconstruction/sift/small/' + 'database.db'
+# reconstruction_path = '/home/gns/Documents/terna_colmap_reconstruction/sift/small/georeferenced/'#'/home/gns/Documents/terna_colmap_reconstruction/georeferenced/reconstruction_georef/'
 
 
 # camera=pycolmap.Camera(
@@ -83,10 +83,10 @@ def feature_matching(des1,des2):
     return good,inds1,inds2
 
 
-def localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshold=0.5):
+def localize_image(image,frames,frames_descriptors,encoder,top_k=1,threshold=0.5):
     # des,kp=get_features(image_id,DATABASE_PATH_QUERY)
 
-    img = Image.open(image_path).convert('RGB')
+    img = image
     img = ImageOps.grayscale(img)
     img = np.array(img).astype(np.float32) / 255.
     sift = pycolmap.Sift()
@@ -166,7 +166,7 @@ def pose_to_T_inv(q,t,w_last=True):
     T[:3,3]=np.asarray(t)
     return(np.linalg.inv(T))
 
-def get_descriptors(image_id,database_path=DATABASE_PATH_DB):
+def get_descriptors(image_id,database_path):
     # Connect to the COLMAP SQLite database
     db = COLMAPDatabase.connect(database_path)
     descriptors = db.execute("SELECT data FROM descriptors WHERE image_id = ?", (image_id,)).fetchone()[0]
@@ -221,7 +221,7 @@ def get_features(image_id, database_path):
     return descriptors_array, keypoints_array
 
 class Frame():
-    def __init__(self, image_id, image, points3d , points2d,valid_mask, descriptor=None, base_path=IMG_PATH_DB,database_path=DATABASE_PATH_DB):
+    def __init__(self, image_id, image, points3d , points2d,valid_mask, base_path,database_path, descriptor=None,):
         self.image_id = image_id
         self.image = image
         self.points3d = points3d
@@ -239,7 +239,7 @@ class Frame():
         
 
  
-def build_database(reconstruction_path):
+def build_database(reconstruction_path,database_path_db,img_path_db):
     # Load the database
     reconstruction = pycolmap.Reconstruction(reconstruction_path)
 
@@ -258,7 +258,7 @@ def build_database(reconstruction_path):
 
         points_valid_2D = [point.xy for point in points_valid]
         points_valid_3D = [points3D[point.point3D_id].xyz for point in points_valid]
-        frame=Frame(image_id,image,points_valid_3D,points_valid_2D,valid_mask)
+        frame=Frame(image_id,image,points_valid_3D,points_valid_2D,valid_mask,base_path=img_path_db,database_path=database_path_db)
         frames.append(frame)
         # descriptor=encoder.model(encoder.preprocess_image(BASE_PATH_DB+'imgs/'+image.name).cuda()).detach().cpu()
         # frames_descriptors.append(descriptor)#(frame.descriptors_local)#(get_descriptors(image_id,database_path))
@@ -276,19 +276,86 @@ def build_database(reconstruction_path):
         torch.save(frames_descriptors,'colmap_localization/reconstruction/descriptors.pt')
     return frames,frames_descriptors
 
-### LOAD THE GEOREFERENCED DATABASE RECOSNTRUCTION ###   
-frames,frames_descriptors=build_database(reconstruction_path)
 
-### FIND THE IMAGE PATH IN ORDER TO LOAD THE IMAGE AND PRE-COMPUTE THE DESCRIPTORS FOR PLACE RECOGNITION ###
-image_paths = [frame.base_path + frame.image.name for frame in frames]
 
-if os.path.exists('colmap_localization/reconstruction/descriptors.pt'):
-    frames_descriptors = torch.load('colmap_localization/reconstruction/descriptors.pt')
-else:
-    data= [encoder.preprocess_image(image_path) for image_path in image_paths]
-    frames_descriptors = [encoder.model(d.cuda()).detach().cpu() for d in data]
-    frames_descriptors=torch.cat(frames_descriptors)
-    torch.save(frames_descriptors,'colmap_localization/reconstruction/descriptors.pt')
+class Loc:
+    def __init__(self,reconstruction_path,database_path_db,img_path_db):
+
+
+        ### LOAD THE GEOREFERENCED DATABASE RECOSNTRUCTION ###   
+        self.frames,self.frames_descriptors=build_database(reconstruction_path,database_path_db,img_path_db)
+
+        ### FIND THE IMAGE PATH IN ORDER TO LOAD THE IMAGE AND PRE-COMPUTE THE DESCRIPTORS FOR PLACE RECOGNITION ###
+        image_paths = [frame.base_path + frame.image.name for frame in self.frames]
+
+        if os.path.exists('colmap_localization/reconstruction/descriptors.pt'):
+            self.frames_descriptors = torch.load('colmap_localization/reconstruction/descriptors.pt')
+        else:
+            data= [encoder.preprocess_image(image_path) for image_path in image_paths]
+            self.frames_descriptors = [encoder.model(d.cuda()).detach().cpu() for d in data]
+            self.frames_descriptors=torch.cat(self.frames_descriptors)
+            torch.save(self.frames_descriptors,'colmap_localization/reconstruction/descriptors.pt')
+
+        self.buffer=[]
+        self.buffer_path='colmap_localization/reconstruction/buffer'
+        if not os.path.exists(self.buffer_path):
+            os.makedirs(self.buffer_path)
+        if not os.path.exists(self.buffer_path+'/images'):
+            os.makedirs(self.buffer_path+'/images')
+                
+
+
+    def localize(self,image):
+
+        pose=localize_image(image,self.frames,self.frames_descriptors,encoder,top_k=1,threshold=0.8)#at least n inliers
+
+        # poses_matches.append([images[image_id],pose])
+        self.buffer.append([image,pose])
+        # image.save(self.buffer_path+'/images')
+        
+
+        if len(self.buffer)>20:
+            popped=self.buffer.pop(0)
+            p
+
+    def reconstruct_buffer(self):
+        
+        if len(self.buffer>20):
+
+
+            print("Running feature extraction for initial reconstruction...")
+            subprocess.run([
+                "colmap", "feature_extractor",
+                "--database_path", self.buffer_path+'database.db',
+                "--image_path", queries_path,
+                "--SiftExtraction.max_num_features", "10000",
+                "--ImageReader.camera_model", "OPENCV"
+            ], check=True)
+
+            print("Running exhaustive matching for initial reconstruction...")
+            subprocess.run([
+                "colmap", "exhaustive_matcher",
+                "--database_path", self.buffer_path+'database.db',
+                "--SiftMatching.max_distance", "100.0",
+                "--SiftMatching.max_num_matches", "100000"
+            ], check=True)
+
+            print("Running structure-from-motion...")
+            sfm_output = os.path.join(self.buffer_path, "sfm")
+            if not os.path.exists(sfm_output):
+                os.makedirs(sfm_output)
+
+            subprocess.run([
+                "colmap", "mapper",
+                "--database_path", self.buffer_path+'database.db',
+                "--image_path", queries_path,
+                "--output_path", sfm_output,
+                "--Mapper.init_min_num_inliers", "30",
+                "--Mapper.ba_local_max_num_iterations", "50",
+                "--Mapper.ba_global_max_num_iterations", "50",
+                "--Mapper.multiple_models", "0"
+            ], check=True)
+    
 
 
 
