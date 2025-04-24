@@ -4,7 +4,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import MLFlowLogger
 from torch.optim import lr_scheduler
 
-from vpr.models import helper
+from .models import helper
 import numpy as np
 import os
 import torch.distributed as dist

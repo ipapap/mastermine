@@ -9,7 +9,54 @@ import laspy
 import open3d as o3d
 import scipy
 
-# def read_image(im):
+
+def read_image(path):
+    im=Image.open(path)
+    im_data=im.getxmp()['xmpmeta']['RDF']['Description']
+    if im_data['Model'] == 'ZH20':
+
+        # rpy=np.asarray([im_data['FlightYawDegree'],im_data['FlightRollDegree'],im_data['FlightPitchDegree']]).astype(float)
+        lat_lon=np.asarray([im_data['GpsLatitude'],im_data['GpsLongitude']]).astype(float)  # typo error in the key name
+        x,y,zone,zone_letter=utm.from_latlon(lat_lon[0],lat_lon[1])
+        alt=float(im_data['RelativeAltitude'])
+        alt_abs=float(im_data['AbsoluteAltitude'])
+        gimbal_rpy=np.asarray([im_data['GimbalYawDegree'],im_data['GimbalRollDegree'],im_data['GimbalPitchDegree'],]).astype(float)
+        exif_data = im._getexif()
+        def get_exif_tag_key(tag_name):
+            for key, value in TAGS.items():
+                if value == tag_name:
+                    return key
+            return None
+        focal_length_key = get_exif_tag_key('FocalLength')
+        focal_length = float(exif_data.get(focal_length_key))*1000
+          
+
+
+
+
+        # Camera intrinsic matrix
+        K = np.array([
+            [focal_length, 0, im.width / 2],
+            [0, focal_length, im.height / 2],
+            [0, 0, 1]
+        ])
+
+    elif im_data['Model'] == 'EP800':
+
+        # rpy=np.asarray([im_data['FlightYawDegree'],im_data['FlightRollDegree'],im_data['FlightPitchDegree']]).astype(float)
+        lat_lon=np.asarray([im_data['GpsLatitude'],im_data['GpsLongtitude']]).astype(np.float32)
+        x,y,zone,zone_letter=utm.from_latlon(lat_lon[0],lat_lon[1])
+        alt=float(im_data['RelativeAltitude'])
+        alt_abs=float(im_data['AbsoluteAltitude'])
+        gimbal_rpy=np.asarray([im_data['GimbalYawDegree'],im_data['GimbalRollDegree'],im_data['GimbalPitchDegree'],]).astype(float)
+        K=np.array([[float(im_data['CalibratedFocalLength']),0,float(im_data['CalibratedOpticalCenterX'])],[0,float(im_data['CalibratedFocalLength']),float(im_data['CalibratedOpticalCenterY'])],[0,0,1]]) 
+
+    else :
+        print('Camera model not supported')
+        return None
+    return {'gimbal_yrp':gimbal_rpy,'utm':[x,y],'altitude_rel':alt,'altitude_abs':alt_abs,'latlon':lat_lon,'image':im,'K':K,'time':im_data['CreateDate']}
+
+
 def read_meta(im):
     # im=Image.open(path)
     im_data=im.getxmp()['xmpmeta']['RDF']['Description']

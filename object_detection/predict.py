@@ -1,10 +1,10 @@
 from ultralytics import YOLO
 from PIL import Image
 
-model = YOLO('object_detection/weights/best.pt')
+model = YOLO('object_detection/weights/bestl.pt')
 def detect_objects(image,model=model):
 
-    results = model.predict(image, conf=0.3, iou=0.02, augment=True, agnostic_nms=True, imgsz=400)
+    results = model.predict(image, conf=0.5, iou=0.8, imgsz=640)#, augment=True, agnostic_nms=True,
     detected_info = []
 
     for result in results[0].boxes:
@@ -17,7 +17,8 @@ def detect_objects(image,model=model):
 
         detected_info.append({
             'class': class_name,
-            'center': (x_center, y_center)
+            'center': (x_center, y_center),
+            'bbox':box
         })
 
     return detected_info

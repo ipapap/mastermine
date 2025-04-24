@@ -61,7 +61,7 @@ def run_visualization(static_points,static_colors,dynamic_points=dynamic_objs):
 # vis_thread = threading.Thread(target=run_visualization, daemon=True)
 # vis_thread.start()
 
-def update(points,color=[1,0,1],size=3):
+def update(points,colors=[1,0,1],size=3):
     global dynamic_objs
     global dynamic_mesh
     with points_lock:
@@ -73,7 +73,7 @@ def update(points,color=[1,0,1],size=3):
         # Create a merged mesh with all spheres
         new_mesh = o3d.geometry.TriangleMesh()
         
-        for center in points:
+        for center,color in zip(points,colors):
             sphere = create_sphere(center, radius=size, color=color)
             new_mesh += sphere  # Merge all spheres into one mesh
         if dynamic_mesh is None:

@@ -1,7 +1,7 @@
 import torch
 import sys
 # sys.path.append('/home/gns/dev/gsv-cities/')
-from vpr.main import VPRModel
+from vpr.main import VPRModel #remove . to work with localize.py
 
 
 from PIL import Image

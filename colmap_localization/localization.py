@@ -137,7 +137,7 @@ def localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshol
     ## Rest for validating the result with gt 
     if pose is  None: return
     # if pose['num_inliers']/len(points2d) < threshold and pose['num_inliers']>500 : return
-    if pose['num_inliers']<50 : return
+    if pose['num_inliers']<300 : return
     quat=pose['cam_from_world'].rotation
     t=pose['cam_from_world'].translation
     T=pose_to_T_inv(pose['cam_from_world'].rotation.quat,pose['cam_from_world'].translation,w_last=False)
@@ -282,14 +282,16 @@ def build_database(reconstruction_path):
 
 
 class Loc():
-    def __init__(self,buffer_size=20,buffer_dir='temp_buffer',evaluate=True):
+    def __init__(self,buffer_size=40,buffer_dir='temp_buffer',evaluate=True,precomp=True,precomp_path='colmap_localization/reconstruction/waypoint'):
         self.buffer_dir=buffer_dir
         self.evaluate=evaluate
+        self.precomp=precomp
+        self.precomp_path=precomp_path
         ### LOAD THE GEOREFERENCED DATABASE RECOSNTRUCTION ###   
         self.frames,self.frames_descriptors=build_database(reconstruction_path)
 
         ### FIND THE IMAGE PATH IN ORDER TO LOAD THE IMAGE AND PRE-COMPUTE THE DESCRIPTORS FOR PLACE RECOGNITION ###
-        self.image_paths = [frame.base_path + frame.image.name for frame in self.frames]
+        self.image_paths = [frame.base_path + frame.image.name for frame in self.frames]  #NOT SORTED
 
         if os.path.exists('colmap_localization/reconstruction/descriptors.pt'):
             self.frames_descriptors = torch.load('colmap_localization/reconstruction/descriptors.pt')
@@ -313,7 +315,7 @@ class Loc():
     def add_query(self,image_path):        
         pose=localize_image(image_path,self.frames,self.frames_descriptors,encoder,top_k=1,threshold=0.8)#at least n inliers
         # self.poses_matches.append([image_path,pose])
-        # self.queries_paths.append([image_path,pose])
+        # self.queries_path s.append([image_path,pose])
         temp_image_path=os.path.join(self.buffer_dir,'images',image_path.split('/')[-1])
         shutil.copyfile(image_path,temp_image_path)
         self.queries_paths.append([temp_image_path,pose])
@@ -334,26 +336,27 @@ class Loc():
 
     def loc_sequence(self):
         if len(self.queries_paths)<3: return None
-        images_path=os.path.join(self.buffer_dir,'images/')
-        # Run the colmap pipeline
-        os.system(f'colmap feature_extractor --database_path {self.buffer_dir}/database.db --image_path {images_path} --ImageReader.camera_model OPENCV --SiftExtraction.use_gpu 1 --ImageReader.single_camera_per_folder 1  --SiftExtraction.max_num_features 10000')
-        # os.system(f'colmap spatial_matcher --database_path {self.buffer_dir}/database.db ')
-        os.system(f'colmap exhaustive_matcher --database_path {self.buffer_dir}/database.db --SiftMatching.max_distance 100.0 --SiftMatching.max_num_matches 100000')
-        os.system(f'colmap mapper --database_path {self.buffer_dir}/database.db --image_path {images_path} --output_path {self.buffer_dir} --Mapper.multiple_models 0 \
-                  --Mapper.init_min_num_inliers 30 \
-                  --Mapper.ba_local_max_num_iterations 30\
-                  --Mapper.ba_global_max_num_iterations 5\
-                  ')
+        if not self.precomp:
+            images_path=os.path.join(self.buffer_dir,'images/')
+            # Run the colmap pipeline #FULL_OPENCV
+            os.system(f'colmap feature_extractor --database_path {self.buffer_dir}/database.db --image_path {images_path} --ImageReader.camera_model OPENCV --SiftExtraction.use_gpu 1 --ImageReader.single_camera_per_folder 1  --SiftExtraction.max_num_features 10000')
+            # os.system(f'colmap spatial_matcher --database_path {self.buffer_dir}/database.db ')
+            os.system(f'colmap exhaustive_matcher --database_path {self.buffer_dir}/database.db --SiftMatching.max_distance 100.0 --SiftMatching.max_num_matches 100000')
+            os.system(f'colmap mapper --database_path {self.buffer_dir}/database.db --image_path {images_path} --output_path {self.buffer_dir} --Mapper.multiple_models 0 \
+                        --Mapper.init_min_num_inliers 30 \
+                        --Mapper.ba_local_max_num_iterations 30\
+                        --Mapper.ba_global_max_num_iterations 5\
+                        ')
 
-        os.remove(self.buffer_dir+'/database.db')
-        # os.system(f'colmap model_converter --input_path {self.buffer_dir} --output_path {self.buffer_dir} --output_type TXT')
-        # img_sequence_path = f'{self.buffer_dir}/images.txt' # the sequence of queries in buffer
-        # poses_queries,names_queries=utils_localization.read_img_sequence_poses_to_matrix(img_sequence_path)
+            # os.remove(self.buffer_dir+'/database.db')
+            # os.system(f'colmap model_converter --input_path {self.buffer_dir} --output_path {self.buffer_dir} --output_type TXT')
+            # img_sequence_path = f'{self.buffer_dir}/images.txt' # the sequence of queries in buffer
+            # poses_queries,names_queries=utils_localization.read_img_sequence_poses_to_matrix(img_sequence_path)
 
 
-        # # make output directory, delete if exists and create new
-        # if os.path.exists('{self.buffer_dir}/aligned'):
-        #     shutil.rmtree('colmap_localization/reconstruction/aligned')
+            # # make output directory, delete if exists and create new
+            # if os.path.exists('{self.buffer_dir}/aligned'):
+            #     shutil.rmtree('colmap_localization/reconstruction/aligned')
         os.makedirs(os.path.join(self.buffer_dir,'aligned/'), exist_ok=True)
 
 
@@ -372,14 +375,20 @@ class Loc():
 
         try:
             # run model aligner usign terminal command
-            ref_images_path=os.path.join(self.buffer_dir,'aligned/poses_matches.txt')
-            output_path=os.path.join(self.buffer_dir,'aligned')
-            input_path=self.buffer_dir+'/0'
+            if not self.precomp:
+
+                ref_images_path=os.path.join(self.buffer_dir,'aligned/poses_matches.txt')
+                output_path=os.path.join(self.buffer_dir,'aligned')
+                input_path=self.buffer_dir+'/0'
+
+                
+            else:
+                ref_images_path=os.path.join(self.buffer_dir,'aligned/poses_matches.txt')
+                output_path=os.path.join(self.buffer_dir,'aligned')
+                input_path=self.precomp_path
 
             os.system(f'colmap model_aligner --input_path {input_path} --output_path {output_path} --ref_images_path {ref_images_path} --alignment_max_error 1 --alignment_type ecef')
-
             #convert output to txt
-
             os.system(f'colmap model_converter --input_path {output_path} --output_path {output_path} --output_type TXT')
 
             # load the aligned reconstruction
