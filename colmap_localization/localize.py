@@ -18,6 +18,7 @@ import utm
 import pyproj
 import shutil
 from scipy.spatial.transform import Rotation as R
+import pandas as pd
 IMG_PATH_QUERY = '/home/gns/Documents/terna_colmap_reconstruction/queries/DJI_202407031532_019_Waypoint1/'
 # DATABASE_PATH_QUERY = BASE_PATH_QUERY + 'database.db'
 IMG_PATH_DB = '/home/gns/Documents/terna_colmap_reconstruction/DJI_202407031342_007_H20-bobakas-1/'#'/home/gns/Documents/terna_colmap_reconstruction/'
@@ -92,8 +93,6 @@ def compute_rotation_error(R_gt,R_est,im_data):
 
     # Now both R_gt_ecef and R_col are in ECEF
     error_deg = orientation_error(R_gt_ecef, R_est)
-
-    print(f"Orientation error in ECEF frame: {error_deg:.2f}°")
     return(error_deg)
 
 def feature_matching(des1,des2):
@@ -330,8 +329,9 @@ else:
 
 
 ### FIND THE QUERIES AND LOCALIZE ### 
+
 poses_matches=[]
-images=sorted(os.listdir(IMG_PATH_QUERY))[:40]
+images=sorted(os.listdir(IMG_PATH_QUERY))[:]
 for image_id in range(0,len(images)+0):
     image_path=IMG_PATH_QUERY+images[image_id]
     pose=localize_image(image_path,frames,frames_descriptors,encoder,top_k=1,threshold=0.8)#at least n inliers
@@ -373,7 +373,7 @@ poses_aligned,names=utils_localization.read_img_sequence_poses_to_matrix('colmap
 idx=np.argsort(names)
 names=names[idx]
 poses_aligned=poses_aligned[idx]
-
+final_results=[]
 # check result usign exif data
 for image_id in range(0,len(images)+0):
     im_data = utils.read_image(IMG_PATH_QUERY+images[image_id])
@@ -400,10 +400,14 @@ for image_id in range(0,len(images)+0):
     
     # print('Rotational error: ',rot_error) ## needs fixing, it compares ENU with colmap orientation
     print('\n')
+    final_results.append({'Translation_error':trans_error,'Orientation_error':rot_error,'est_lat':lat,'est_lon':lon,'gt_lat':im_data['latlon'][0],'gt_lon':im_data['latlon'][1]})
+
+df = pd.DataFrame(final_results)
+csv_path = "loc_errors.csv"
+df.to_csv(csv_path, index=True)
 
 
-
-
+# visualize traj alingment
 # def viz():
 #     traj2=[]
 #     traj1=[]
